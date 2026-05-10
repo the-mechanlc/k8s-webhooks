@@ -120,20 +120,20 @@ the `caBundle` field in your `ValidatingWebhookConfiguration`.
 
 ```mermaid
 flowchart TD
-    You([👤 You\nmake deploy])
+    You([👤 You])
 
-    You -->|runs| A[certs/gen-certs.sh\nopenssl commands]
+    You -->|runs| A["certs/gen-certs.sh\nopenssl commands"]
 
-    A -->|creates| B[CA cert + key\nca.crt / ca.key]
-    A -->|creates| C[Server cert + key\ntls.crt / tls.key\nSAN: webhook-svc.default.svc]
+    A -->|creates| B["CA cert + key\nca.crt / ca.key"]
+    A -->|creates| C["Server cert + key\ntls.crt / tls.key\nSAN: webhook-svc.default.svc"]
 
     B -->|signs| C
 
-    C -->|hostPath volume\\n(certs/ on node)| E[Webhook Pod\\nreads tls.crt + tls.key\\nserves HTTPS :8443]
+    C -->|hostPath mount| E["Webhook Pod\nreads tls.crt + tls.key\nserves HTTPS :8443"]
 
-    B -->|"base64 encode\n(cat ca.crt | base64)"| F[caBundle value\nin webhook-config.yaml]
-    F -->|kubectl apply| G[ValidatingWebhookConfiguration\nsee config below]
-    G -->|API server trusts\nwebhook's cert| E
+    B -->|base64-encode CA cert| F["caBundle value\nin webhook-config.yaml"]
+    F -->|kubectl apply| G["ValidatingWebhookConfiguration"]
+    G -->|API server trusts webhook cert| E
 ```
 
 > **Why the SAN matters:** The server cert must include a Subject Alternative Name
