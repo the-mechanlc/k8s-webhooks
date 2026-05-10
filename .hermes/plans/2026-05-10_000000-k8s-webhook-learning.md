@@ -8,16 +8,14 @@ how the K8s API server admission chain works — from the ground up.
 - **Go 1.26** (via snap) — standard library only, no controller-runtime
 - **k3s** — lightest real Kubernetes, runs natively on Linux (no Docker needed)
 - **openssl** — self-signed TLS cert (required by k8s for webhooks)
-- **Excalidraw** — annotated flow diagram exported as SVG → embedded in README
+- **Mermaid** — annotated flow diagrams embedded directly in README (renders natively on GitHub)
 
 ---
 
 ## Project Structure
 ```
 projects/k8s-webhooks/
-├── README.md                  # Concept explainer + embedded SVG diagram
-├── docs/
-│   └── webhook-flow.svg       # Exported Excalidraw diagram (embedded in README)
+├── README.md                  # Concept explainer + 3 embedded Mermaid diagrams
 ├── webhook/
 │   ├── main.go                # HTTP server entrypoint
 │   ├── handler.go             # AdmissionReview request/response logic
@@ -35,15 +33,16 @@ projects/k8s-webhooks/
 
 ## Step-by-Step Plan
 
-### Stage 1 — Understand (diagram + README)
-1. Create `docs/webhook-flow.excalidraw` + export `docs/webhook-flow.svg`
-   - Flow: `kubectl apply` → API server → Auth/AuthZ → Admission Controllers → Validating Webhook → etcd
-   - Show the HTTP round-trip: AdmissionReview request → webhook → AdmissionResponse
+### Stage 1 — Understand (diagrams + README)
+1. Write `README.md` with 3 embedded Mermaid diagrams:
+   - Admission chain flowchart: `kubectl apply` → API server → Auth/AuthZ → Admission Controllers → Validating Webhook → etcd
+   - Sequence diagram: HTTP round-trip — AdmissionReview request → webhook → AdmissionResponse
+   - TLS setup flowchart: cert chain + caBundle registration
    - Annotate: what fields matter, where allowed/denied is set
-2. Write `README.md` with:
+2. Include in README:
    - What is an admission webhook (2 types: Validating vs Mutating)
-   - The admission chain diagram (embedded SVG)
    - What we're building and why
+   - Full `ValidatingWebhookConfiguration` YAML example with inline comments
 
 ### Stage 2 — Build (Go webhook server)
 3. Install Go via snap
@@ -80,8 +79,7 @@ projects/k8s-webhooks/
 ## Files to Create
 | File | Purpose |
 |------|---------|
-| `README.md` | Learning explainer |
-| `docs/webhook-flow.svg` | Excalidraw diagram (SVG export) |
+| `README.md` | Learning explainer + 3 Mermaid diagrams |
 | `webhook/main.go` | TLS HTTP server |
 | `webhook/handler.go` | AdmissionReview parsing |
 | `webhook/validator.go` | Label validation logic |
