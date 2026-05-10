@@ -1,0 +1,17 @@
+# Build output
+bin/
+
+# TLS certificates (generated locally, never commit private keys)
+certs/*.crt
+certs/*.key
+certs/*.pem
+certs/*.csr
+certs/*.srl
+
+# Go test cache
+*.test
+
+# OS / editor
+.DS_Store
+*.swp
+*.swo
