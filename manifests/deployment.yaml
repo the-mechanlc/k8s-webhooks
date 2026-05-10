@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-server
+  namespace: default
+  labels:
+    app: webhook-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook-server
+  template:
+    metadata:
+      labels:
+        app: webhook-server
+    spec:
+      containers:
+        - name: webhook
+          # We run the pre-built binary directly via hostPath volumes.
+          # In a real project you'd push a container image to a registry instead.
+          image: busybox:1.36
+          command: ["/webhook/bin/webhook"]
+          ports:
+            - containerPort: 8443
+              name: https
+          env:
+            # Tell the server where the TLS cert files are (mounted below)
+            - name: TLS_CERT
+              value: /webhook/certs/tls.crt
+            - name: TLS_KEY
+              value: /webhook/certs/tls.key
+          volumeMounts:
+            # Mount the compiled binary
+            - name: webhook-bin
+              mountPath: /webhook/bin
+              readOnly: true
+            # Mount the generated TLS cert + key
+            - name: webhook-certs
+              mountPath: /webhook/certs
+              readOnly: true
+          # Liveness probe hits /healthz — the server must respond 200 OK
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+      volumes:
+        # HostPath: direct path to the binary on the node filesystem.
+        # Works for local learning clusters (k3s on a single node).
+        - name: webhook-bin
+          hostPath:
+            path: /data/hermes/workspace/projects/k8s-webhooks/bin
+            type: Directory
+        - name: webhook-certs
+          hostPath:
+            path: /data/hermes/workspace/projects/k8s-webhooks/certs
+            type: Directory

@@ -1,0 +1,34 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: team-label-validator
+webhooks:
+  - name: validate-team-label.k8s-webhooks.local
+    # Which requests trigger this webhook
+    rules:
+      - operations: ["CREATE"]          # Fire on pod CREATE only (not updates)
+        apiGroups: [""]                  # "" = core API group
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    # How to reach our webhook server
+    clientConfig:
+      service:
+        name: webhook-svc               # Service name (must match cert SAN)
+        namespace: default
+        path: /validate                 # Our handler endpoint
+      # base64-encoded CA cert so the API server can verify our TLS cert
+      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURDekNDQWZPZ0F3SUJBZ0lVVVQxUXozbm9ZMngybkQ0ZWk0U1dUa0hGU1F3d0RRWUpLb1pJaHZjTkFRRUwKQlFBd0ZURVRNQkVHQTFVRUF3d0tkMlZpYUc5dmF5MWpZVEFlRncweU5qQTFNVEF3TkRRNE5ERmFGdzB5TnpBMQpNVEF3TkRRNE5ERmFNQlV4RXpBUkJnTlZCQU1NQ25kbFltaHZiMnN0WTJFd2dnRWlNQTBHQ1NxR1NJYjNEUUVCCkFRVUFBNElCRHdBd2dnRUtBb0lCQVFDbTBCWjkzNGk3S2NsTjFRWktFRURSUGVSR0NCSXczdHM2WHlLbjNIZ2IKcDZMbEI0YjM2VkNndGtjdHd5a1JPR0pzYnYzYTNxRTlieWRZYm9rd29yM0h2MWhHYnlTR21oV1pKdTV5YlBIUQpKZm00RjlyaWFWRElnMENkaVliYS9WUFlqb1ZCdTZ3K1AvdHMwMWNLc003eFh1Qk02Zklic2lheWNkdmpTRnZECndPTUFBS01FQlhBdWprWTNLa0VrVENDYnJocU1SUkx6bEgzdTRlZU93YUZabUZaWkloUHNoaVA1THRSWk5TMmoKeUN4RnJkN2kyTmhWRG5CU1FvN1NHdzJuREZhRG9YbUZuVUQwWE5yT1o2dW91NVB4Ykp0N1lyUklTMjgxdVpoeApFQUhwbzgvZmFDQ29TVVpoWVlJS1pmOEFtOXBvR0d0MFlvSjJzUy9NTGZQVEFnTUJBQUdqVXpCUk1CMEdBMVVkCkRnUVdCQlNuVEx2MEhCQXY1MXVtT1E2eERNbTRIUkc3bFRBZkJnTlZIU01FR0RBV2dCU25UTHYwSEJBdjUxdW0KT1E2eERNbTRIUkc3bFRBUEJnTlZIUk1CQWY4RUJUQURBUUgvTUEwR0NTcUdTSWIzRFFFQkN3VUFBNElCQVFDQwo4V2ZxUWpLUVBMam9OdVpRNHV6NHZpWU5TMkFnS09Ub0tUNWJnbGRrelJIQ05raEVNbHN1OHl6Y0dsVTRiQ3h6CjhSMENqS0gveGhqZ1JiVkJXT1V0YndmRWVmZ0NTQkY5UnhBbnRhSEd3UUNjTStCYVFlNTNYZ2NMZVRsOHdZUUwKQTd3OHhzSStIYzFnUGg0ZkNYUEdxdzY2ZG9BLzNqbWp5bW5ma05LbHNXdWZkV3F4WHBtQzUrUm5YMVFsTU80VQozYzRTYWplQ0J0NWpLZEdZNVNCMHhKQUR2YUR4WDhlK0ticlk1alB2M3JKUWVNcFVvaXRpcTBSWitFNWtsa1BrClhPdEhIU29aTWJNRkxYM3R4clExcXI1YjlVYzRidUNlOUJKcXhHQ1pjaUw5NnBHUmxFM013cjFWNTVucEhjdVMKRXVIalpRT09XeElBb2VCZGlCeEkKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+    # IGNORE during development — if webhook is down, pods can still be created.
+    # Switch to "Fail" once stable (blocks all pod creation if webhook unreachable).
+    failurePolicy: Ignore
+    # sideEffects: None is required for webhooks that don't mutate anything
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+    # Scope: Namespaced means only applies to namespaced resources (not cluster-scoped)
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system    # Never intercept system namespace — would break k8s itself
+            - kube-public
