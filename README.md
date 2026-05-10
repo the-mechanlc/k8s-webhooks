@@ -129,8 +129,7 @@ flowchart TD
 
     B -->|signs| C
 
-    C -->|kubectl create secret\ntls webhook-tls| D[K8s TLS Secret\nwebhook-tls]
-    D -->|volumeMount\n/certs/| E[Webhook Pod\nreads tls.crt + tls.key\nserves HTTPS :8443]
+    C -->|hostPath volume\\n(certs/ on node)| E[Webhook Pod\\nreads tls.crt + tls.key\\nserves HTTPS :8443]
 
     B -->|"base64 encode\n(cat ca.crt | base64)"| F[caBundle value\nin webhook-config.yaml]
     F -->|kubectl apply| G[ValidatingWebhookConfiguration\nsee config below]
@@ -152,7 +151,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: team-label-validator
 webhooks:
-  - name: validate.team-label.io
+  - name: validate-team-label.k8s-webhooks.local
     # Which requests to intercept
     rules:
       - apiGroups:   [""]
@@ -167,11 +166,13 @@ webhooks:
         path:      /validate
       caBundle: <base64-encoded-ca.crt>  # paste output of: base64 -w0 ca.crt
     # If the webhook is unreachable, pass or fail?
-    failurePolicy: Ignore            # use Fail in production
-    # Only intercept pods in namespaces with this label
+    failurePolicy: Ignore            # use Fail in production; Ignore = webhook down → request passes
+    # Exclude system namespaces — intercepting kube-system can break the cluster
     namespaceSelector:
-      matchLabels:
-        webhook: enabled
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [kube-system, kube-public]
     admissionReviewVersions: ["v1"]
     sideEffects: None
 ```
@@ -184,7 +185,7 @@ webhooks:
 | `clientConfig.service` | In-cluster DNS pointing to your Go server |
 | `caBundle` | Base64 CA cert — API server uses this to verify your webhook's TLS |
 | `failurePolicy: Ignore` | If webhook is down, let the request through (safe for dev) |
-| `namespaceSelector` | Limits scope — only namespaces labelled `webhook: enabled` are checked |
+| `namespaceSelector` | Excludes `kube-system` / `kube-public` — never intercept system namespaces |
 | `sideEffects: None` | Tells k8s this webhook has no side effects (required field) |
 
 ---
@@ -196,28 +197,31 @@ k8s-webhooks/
 ├── webhook/
 │   ├── main.go         # HTTPS server on :8443
 │   ├── handler.go      # Parse AdmissionReview, build response
-│   └── validator.go    # Business rule: must have 'team' label
+│   ├── validator.go    # Business rule: must have 'team' label
+│   └── validator_test.go  # Table-driven tests (5 cases)
 ├── certs/
 │   └── gen-certs.sh    # Generate self-signed TLS cert via openssl
 ├── manifests/
 │   ├── deployment.yaml        # Deploy webhook pod into k3s
 │   ├── service.yaml           # ClusterIP service
-│   └── webhook-config.yaml    # ValidatingWebhookConfiguration
-└── Makefile            # build / cert / deploy / test
+│   ├── webhook-config.yaml    # ValidatingWebhookConfiguration
+│   ├── test-pod-allowed.yaml  # Test: pod WITH 'team' label → admitted
+│   └── test-pod-denied.yaml   # Test: pod WITHOUT 'team' label → rejected
+└── Makefile                   # build / certs / run / test
 ```
 
 ---
 
 ## Stages
 
-- [x] **Stage 1** — Flow diagrams + README (you are here)
-- [ ] **Stage 2** — Build the Go webhook server
-- [ ] **Stage 3** — Deploy to k3s + live test
+- [x] **Stage 1** — Flow diagrams + README
+- [x] **Stage 2** — Build the Go webhook server
+- [x] **Stage 3** — Deploy to k3s + live test
 
 ---
 
 ## Prerequisites
 
 - Go 1.26 (`snap install go --classic`)
-- k3s (`curl -sfL https://get.k3s.io | sh -`)
+- k3s (`curl -sfL https://get.k3s.io | sh -`) — already running if you followed Stage 3
 - openssl (already installed)
